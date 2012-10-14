@@ -6,7 +6,7 @@ class Graph
             @adjmat[i][j] = 1
         end
     end
-    attr_reader: @nvertices
+    attr_reader :nvertices
     def each_vertices
         @nvertices.times do |i|
             yield i

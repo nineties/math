@@ -36,7 +36,7 @@ def formula_to_s_loop(p)
 end
 def formula_to_s(p)
     return formula_to_s_loop(p) unless p.is_a?(Array) && p[0] == :IMP
-    "#{formula_to_s_loop(p[1])}->#{formula_to_s_loop(p[2])}"
+    "#{formula_to_s_loop(p[1])}→#{formula_to_s_loop(p[2])}"
 end
 
 def print_proof(proof)
@@ -52,6 +52,7 @@ def print_proof(proof)
             comment = "Ax4"
         elsif forall?(p)
             comment = "GEN"
+            used[i-1] = true
         else
             (i-1).downto(0) do |j|
                 next unless imp?(proof[j]) && proof[j][2] == p
@@ -61,7 +62,7 @@ def print_proof(proof)
                 end
             end
         end
-        puts "[#{i}]:\t #{formula_to_s(p)} (#{comment})"
+        puts "#{[i]}\t#{formula_to_s(p)} (#{comment})"
     end
 end
 
@@ -74,7 +75,33 @@ def simplify(proof)
             break
         end
     end
-    proof.uniq
+    proof.uniq!
+
+    # fixme ....
+    loop do
+        used = [false] * proof.size
+        proof.each_with_index do |p, i|
+            if forall?(p)
+                comment = "GEN"
+                used[i-1] = true
+            elsif !ax?(p)
+                (i-1).downto(0) do |j|
+                    next unless imp?(proof[j]) && proof[j][2] == p
+                    (i-1).downto(0) do |k|
+                    next unless proof[k] == proof[j][1]
+                    used[j] = used[k] = true
+                    end
+                end
+            end
+        end
+        new_proof = []
+        proof.each_with_index do |p, i|
+            new_proof << p if used[i]
+        end
+        new_proof << p
+        return new_proof if new_proof.size == proof.size
+        proof = new_proof
+    end
 end
 
 ## substitution of free variable
@@ -176,7 +203,7 @@ def gen(proof, t, x)
 end
 
 ## identity theorem
-# p -> p
+# p →p
 def identity(p)
     proof = []
     proof << ax1(p, p)
@@ -189,7 +216,7 @@ end
 ## Meta theorems
 
 # detection theorem
-# generate proof of |- p->q from proof of p |- q
+# generate proof of ├ p→q from proof of p ├ q
 def meta_deduction1(p, proof, hypo=[])
     q = proof[-1]
     if ax?(q) || hypo.member?(q)
@@ -231,13 +258,13 @@ def meta_deduction1(p, proof, hypo=[])
         raise "ERROR #{formula_to_s(proof[-1])}"
     end
 end
-# generate proof of p |- q from proof of |- p->q
+# generate proof of p ├ q from proof of ├ p→q
 def meta_deduction2(p, proof)
     proof.unshift(p)
     mp(proof)
 end
 
-# |- !p -> (p -> q)
+# ├ ￢p →(p → q)
 def contradiction1(p, q)
     proof = []
     proof << ax3(q, p)
@@ -249,7 +276,7 @@ def contradiction1(p, q)
     mp(proof)
 end
 
-# |- !!p -> p
+# ├ ￢￢p →p
 def double_negative_elimination(p)
     proof = contradiction1(neg(p), neg(neg(neg(p))))
     proof = meta_deduction2(neg(neg(p)), proof)
@@ -259,14 +286,14 @@ def double_negative_elimination(p)
     meta_deduction1(neg(neg(p)), proof)
 end
 
-# |- P -> !!P
+# ├ P →￢￢P
 def double_negative_insertion(p)
     proof = [p]
     proof = meta_double_negative_insertion(proof)
     meta_deduction1(p, proof)
 end
 
-# |- !!P => |- P
+# ├ ￢￢P => ├ P
 def meta_double_negative_elimination(proof1)
     p = proof1[-1][1][1]
     proof2 = double_negative_elimination(p)
@@ -274,7 +301,7 @@ def meta_double_negative_elimination(proof1)
     mp(proof)
 end
 
-# |- P => |- !!P
+# ├ P => ├ ￢￢P
 def meta_double_negative_insertion(proof1)
     p = proof1[-1]
     proof2 = double_negative_elimination(neg(p))
@@ -284,7 +311,7 @@ def meta_double_negative_insertion(proof1)
     mp(proof)
 end
 
-# !P |- !(Q->Q) => |- P
+# ￢P ├ ￢(Q→Q) => ├ P
 def meta_contradiction1(p, proof)
     q = proof[-1][1][1]
     proof = meta_deduction1(neg(p), proof)
@@ -294,7 +321,7 @@ def meta_contradiction1(p, proof)
     mp(proof)
 end
 
-# |- P => !P |- !(Q->Q)
+# ├ P => ￢P ├ ￢(Q→Q)
 def meta_contradiction2(q, proof1)
     p = proof1[-1]
     proof2 = contradiction1(p, bot(q))
@@ -303,7 +330,7 @@ def meta_contradiction2(q, proof1)
     mp(proof)
 end
 
-# |- !P->!Q => P->Q
+# ├ ￢P→￢Q => P→Q
 def meta_contraposition1(proof)
     p = proof[-1][1][1]
     q = proof[-1][2][1]
@@ -311,7 +338,7 @@ def meta_contraposition1(proof)
     mp(proof)
 end
 
-# |- P->Q => |- !Q->!P
+# ├ P→Q => ├ ￢Q→￢P
 def meta_contraposition2(proof1)
     p = proof1[-1][1]
     q = proof1[-1][2]
@@ -325,7 +352,7 @@ def meta_contraposition2(proof1)
     mp(proof)
 end
 
-# |- P->Q, !P->Q => |- Q
+# ├ P→Q, ￢P→Q => ├ Q
 def meta_dilemma(proof1, proof2)
     p = proof1[-1][1]
     q = proof1[-1][2]
@@ -342,7 +369,7 @@ def meta_dilemma(proof1, proof2)
 end
 
 
-# |- P, Q => |- P and Q
+# ├ P, Q => ├ P and Q
 def meta_insert_and(proof1, proof2)
     p = proof1[-1]
     q = proof2[-1]
@@ -355,12 +382,12 @@ def meta_insert_and(proof1, proof2)
     proof = meta_contradiction1(neg(imp(p, neg(q))), proof)
 end
 
-# |- P(t) => |- ∀xP(x)
+# ├ P(t) => ├ ∀xP(x)
 def meta_forall_gen(proof,t,x)
     gen(proof, t, x)
 end
 
-# |- P(t) => |- ∃xP(x)
+# ├ P(t) => ├ ∃xP(x)
 def meta_exists_gen(proof1,t,x)
     p = proof1[-1]
     proof2 = []
@@ -371,7 +398,8 @@ def meta_exists_gen(proof1,t,x)
 end
 
 
-#### Example1 ###
+### Example1 ###
+## proof of ├ (P→￢￢P)∧(￢￢→P)
 #proof1 = double_negative_insertion(:P)
 #proof2 = double_negative_elimination(:P)
 #proof = meta_insert_and(proof1, proof2)
@@ -379,8 +407,7 @@ end
 #print_proof proof
 
 ### Example2 ###
-## proof of |- ∀xP(x) -> ∃xP(x)
-#print_proof proof1
+## proof of ├ ∀xP(x) →∃xP(x)
 proof = [forall(:x, prop(:P, :x))]
 proof << ax4(prop(:P, :x), :x, :t)
 mp(proof)

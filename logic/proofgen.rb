@@ -52,7 +52,6 @@ def print_proof(proof)
             comment = "Ax4"
         elsif forall?(p)
             comment = "GEN"
-            used[i-1] = true
         else
             (i-1).downto(0) do |j|
                 next unless imp?(proof[j]) && proof[j][2] == p
@@ -82,7 +81,6 @@ def simplify(proof)
         used = [false] * proof.size
         proof.each_with_index do |p, i|
             if forall?(p)
-                comment = "GEN"
                 used[i-1] = true
             elsif !ax?(p)
                 (i-1).downto(0) do |j|

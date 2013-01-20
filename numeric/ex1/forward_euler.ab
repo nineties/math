@@ -1,0 +1,18 @@
+time(i): i*dt
+forward_euler(i):   2*time(i)*dt
+backward_euler(i):  2*time(i+1)*dt
+middle_point(i):    2*(time(i) + time(i+1))/2*dt
+trapezoid(i):       (2*time(i) + 2*time(i+1))/2*dt
+
+integrator: forward_euler
+
+N:  10
+dt: 1.0/N
+x:  0.0
+
+printf("%f %f\n", 0.0, x)
+
+for i in 0..N-1 {
+    x += integrator(i)
+    printf("%f %f\n", (i+1)*dt, x)
+}
